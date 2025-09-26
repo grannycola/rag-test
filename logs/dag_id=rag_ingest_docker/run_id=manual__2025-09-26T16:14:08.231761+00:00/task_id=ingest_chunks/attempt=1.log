@@ -1,0 +1,4 @@
+{"timestamp":"2025-09-26T16:14:09.143614","level":"info","event":"DAG bundles loaded: dags-folder","logger":"airflow.dag_processing.bundles.manager.DagBundlesManager"}
+{"timestamp":"2025-09-26T16:14:09.143959","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/rag_ingest_docker.py","logger":"airflow.models.dagbag.DagBag"}
+{"timestamp":"2025-09-26T16:14:09.389069","level":"info","event":"Starting docker container from image rag-ingest:latest","logger":"airflow.task.operators.airflow.providers.docker.operators.docker.DockerOperator"}
+{"timestamp":"2025-09-26T16:14:09.389948","level":"warning","event":"Using remote engine or docker-in-docker and mounting temporary volume from host is not supported. Falling back to `mount_tmp_dir=False` mode. You can set `mount_tmp_dir` parameter to False to disable mounting and remove the warning","logger":"airflow.task.operators.airflow.providers.docker.operators.docker.DockerOperator"}
