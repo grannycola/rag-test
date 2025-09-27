@@ -22,8 +22,9 @@ for r in res:
 # Список индексов на коллекции
 for idx in col.indexes:
     print("field:", idx.field_name)
-    print("index_name:", idx.index_name)            # может быть None/'' по умолчанию
+    # может быть None/'' по умолчанию
+    print("index_name:", idx.index_name)
     print("index_type:", idx.params.get("index_type"))
     print("metric_type:", idx.params.get("metric_type"))
     print("params:", idx.params.get("params"))
-    print("-"*40)
+    print("-" * 40)

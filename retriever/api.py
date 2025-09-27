@@ -1,4 +1,3 @@
-import os
 from typing import List
 
 from fastapi import FastAPI
@@ -44,6 +43,3 @@ def search(req: SearchRequest):
     r = get_retriever()
     hits = r.search(req.query, top_k=req.top_k)
     return {"hits": hits}
-
-
-

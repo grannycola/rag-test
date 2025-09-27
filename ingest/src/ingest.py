@@ -1,25 +1,26 @@
 import hashlib
 import logging
 import os
-import re
 import sys
 from pathlib import Path
 
-import numpy as np
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from pymilvus import (Collection, CollectionSchema, DataType, FieldSchema,
+from pymilvus import (Collection, CollectionSchema,
+                      DataType, FieldSchema,
                       connections, utility)
 from pymilvus.exceptions import MilvusException
 from sentence_transformers import SentenceTransformer
 
 MILVUS_HOST = os.getenv("MILVUS_HOST", "standalone")
 MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
-COLLECTION  = os.getenv("COLLECTION_NAME", "rag_chunks")
+COLLECTION = os.getenv("COLLECTION_NAME", "rag_chunks")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-DATA_DIR    = os.getenv("DATA_DIR", "/data/docs")
-LOG_LEVEL   = os.getenv("LOG_LEVEL", "INFO").upper()
-RECREATE_COLLECTION_IF_MISSING_FIELDS = os.getenv("RECREATE_COLLECTION_IF_MISSING_FIELDS", "0") == "1"
+DATA_DIR = os.getenv("DATA_DIR", "/data/docs")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+RECREATE_COLLECTION_IF_MISSING_FIELDS = os.getenv(
+    "RECREATE_COLLECTION_IF_MISSING_FIELDS", "0") == "1"
 AUTO_DROP_ON_LOAD_ERROR = os.getenv("AUTO_DROP_ON_LOAD_ERROR", "0") == "1"
+
 
 def setup_logging():
     """Configure root logger to stream to stdout for Airflow to capture."""
@@ -35,16 +36,19 @@ def setup_logging():
     root_logger.setLevel(LOG_LEVEL)
     root_logger.addHandler(handler)
 
+
 setup_logging()
 logger = logging.getLogger("ingest")
+
 
 def iter_texts(root: str):
     p = Path(root)
     for f in p.rglob("*"):
-        if f.is_file() and f.suffix.lower() in {".txt",".md"}:
+        if f.is_file() and f.suffix.lower() in {".txt", ".md"}:
             text = f.read_text(encoding="utf-8", errors="ignore")
             file_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
             yield str(f), text, file_hash
+
 
 def split_into_chunks(text: str, max_tokens=300, overlap=50):
     """Split text into chunks.
@@ -65,24 +69,6 @@ def split_into_chunks(text: str, max_tokens=300, overlap=50):
         yield part
     return
 
-    # Fallback: original sentence-based splitting
-    sents = re.split(r"(?<=[.!?])\s+", text)
-    buf, cnt = [], 0
-    for s in sents:
-        t = s.strip()
-        if not t: continue
-        tk = len(t.split())
-        if cnt + tk <= max_tokens or not buf:
-            buf.append(t)
-            cnt += tk
-        else:
-            chunk = " ".join(buf)
-            yield chunk
-            tail = " ".join(buf)[-overlap*6:]
-            buf = [tail, t] if tail else [t]
-            cnt = len(" ".join(buf).split())
-    if buf:
-        yield " ".join(buf)
 
 def ensure_collection(name: str, dim: int):
     """Ensure collection exists with expected schema.
@@ -147,7 +133,8 @@ def ensure_collection(name: str, dim: int):
             col.load()
         except MilvusException as e:
             if AUTO_DROP_ON_LOAD_ERROR and e.code == 2001:
-                logger.error(f"Load failed (2001) → drop & recreate due to AUTO_DROP_ON_LOAD_ERROR=1: {e}")
+                logger.error(
+                    f"Load failed (2001) → drop & recreate due to AUTO_DROP_ON_LOAD_ERROR=1: {e}")
                 utility.drop_collection(name)
                 col = create_expected_collection()
                 col.load()
@@ -161,42 +148,51 @@ def ensure_collection(name: str, dim: int):
         col.load()
         return col, True
 
+
 def main():
     connections.connect(host=MILVUS_HOST, port=MILVUS_PORT)
     model = SentenceTransformer(EMBED_MODEL)
     dim = model.get_sentence_embedding_dimension()
     col, has_doc_hash = ensure_collection(COLLECTION, dim)
 
-    batch=[]
+    batch = []
     processed_count = 0
     skipped_count = 0
-    
+
     for path, text, file_hash in iter_texts(DATA_DIR):
         # Проверяем существование документа
         exists = []
         try:
             if has_doc_hash:
-                exists = col.query(expr=f'doc_hash == "{file_hash}"', output_fields=["doc_hash"], limit=1)
+                exists = col.query(
+                    expr=f'doc_hash == "{file_hash}"',
+                    output_fields=["doc_hash"],
+                    limit=1)
             else:
-                # Fallback: проверяем по пути (может не уловить изменения содержимого)
-                exists = col.query(expr=f'doc_path == "{path}"', output_fields=["doc_path"], limit=1)
-        except Exception as e:
+                # Fallback: проверяем по пути (может не уловить изменения
+                # содержимого)
+                exists = col.query(
+                    expr=f'doc_path == "{path}"',
+                    output_fields=["doc_path"],
+                    limit=1)
+        except Exception:
             exists = []
         if exists:
             logger.info(f"Skipping already processed document: {path}")
             skipped_count += 1
             continue
-            
+
         processed_count += 1
         logger.info(f"Processing document: {path}")
-        
+
         for i, ch in enumerate(split_into_chunks(text)):
             record = {"doc_path": path, "chunk_idx": i, "text": ch}
             if has_doc_hash:
                 record["doc_hash"] = file_hash
             batch.append(record)
             if len(batch) >= 256:
-                embs = model.encode([r["text"] for r in batch], normalize_embeddings=True).astype("float32")
+                embs = model.encode([r["text"] for r in batch],
+                                    normalize_embeddings=True).astype("float32")
                 if has_doc_hash:
                     col.insert([
                         [r["doc_path"] for r in batch],
@@ -214,7 +210,8 @@ def main():
                     ])
                 batch.clear()
     if batch:
-        embs = model.encode([r["text"] for r in batch], normalize_embeddings=True).astype("float32")
+        embs = model.encode([r["text"] for r in batch],
+                            normalize_embeddings=True).astype("float32")
         if has_doc_hash:
             col.insert([
                 [r["doc_path"] for r in batch],
@@ -233,7 +230,9 @@ def main():
     col.flush()
     col.release()
     col.load()
-    logger.info(f"Ingest done. Processed: {processed_count}, Skipped: {skipped_count}")
+    logger.info(
+        f"Ingest done. Processed: {processed_count}, Skipped: {skipped_count}")
+
 
 if __name__ == "__main__":
     main()
