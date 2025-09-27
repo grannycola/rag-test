@@ -15,7 +15,7 @@ DOCS_HOST_DIR = os.getenv("DOCS_HOST_DIR", "/home/yaroslav/Documents/rag-test/da
 with DAG(
     dag_id="rag_ingest_docker",
     start_date=datetime(2025, 1, 1),
-    schedule="40 23 * * *",
+    schedule="0 21 * * *",
     catchup=False,
     tags=["rag","milvus"],
 ) as dag:
