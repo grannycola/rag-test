@@ -1,4 +1,5 @@
 import os, re, hashlib
+import sys, logging
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 import numpy as np
@@ -9,6 +10,24 @@ MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
 COLLECTION  = os.getenv("COLLECTION_NAME", "rag_chunks")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 DATA_DIR    = os.getenv("DATA_DIR", "/data/docs")
+LOG_LEVEL   = os.getenv("LOG_LEVEL", "INFO").upper()
+
+def setup_logging():
+    """Configure root logger to stream to stdout for Airflow to capture."""
+    if logging.getLogger().handlers:
+        return
+    handler = logging.StreamHandler(stream=sys.stdout)
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)s %(name)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    handler.setFormatter(formatter)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(LOG_LEVEL)
+    root_logger.addHandler(handler)
+
+setup_logging()
+logger = logging.getLogger("ingest")
 
 def iter_texts(root: str):
     p = Path(root)
@@ -69,7 +88,7 @@ def ensure_collection(name: str, dim: int):
                 index_params={"index_type": "Trie"}
             )
         except Exception as e:
-            print(f"Warning: could not create index on doc_hash: {e}")
+            logger.warning(f"Could not create index on doc_hash: {e}")
     col.load()
     return col
 
@@ -94,12 +113,12 @@ def main():
         except Exception as e:
             exists = []
         if exists:
-            print(f"Skipping already processed document: {path}")
+            logger.info(f"Skipping already processed document: {path}")
             skipped_count += 1
             continue
             
         processed_count += 1
-        print(f"Processing document: {path}")
+        logger.info(f"Processing document: {path}")
         
         for i, ch in enumerate(split_into_chunks(text)):
             batch.append({"doc_path": path, "doc_hash": file_hash, "chunk_idx": i, "text": ch})
@@ -125,7 +144,7 @@ def main():
     col.flush()
     col.release()
     col.load()
-    print(f"Ingest done. Processed: {processed_count}, Skipped: {skipped_count}")
+    logger.info(f"Ingest done. Processed: {processed_count}, Skipped: {skipped_count}")
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,7 @@
 from pymilvus import connections, Collection
 
 # Подключаемся
-connections.connect(alias="default", host="172.19.0.4", port="19530")
+connections.connect(alias="default", host="172.21.1.4", port="19530")
 
 # Открываем коллекцию
 col = Collection("rag_chunks")
