@@ -40,19 +40,3 @@ class MilvusRetriever:
         return out
 
 
-def _cli():
-    import argparse, json
-    p = argparse.ArgumentParser()
-    p.add_argument("query", help="Query text")
-    p.add_argument("--top_k", type=int, default=5)
-    args = p.parse_args()
-    r = MilvusRetriever()
-    res = r.search(args.query, top_k=args.top_k)
-    print(json.dumps(res, ensure_ascii=False, indent=2))
-
-
-if __name__ == "__main__":
-    _cli()
-
-
-
