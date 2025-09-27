@@ -1,10 +1,9 @@
 import os
-from typing import List, Dict
+from typing import Dict, List
 
 import numpy as np
+from pymilvus import Collection, connections
 from sentence_transformers import SentenceTransformer
-from pymilvus import connections, Collection
-
 
 MILVUS_HOST = os.getenv("MILVUS_HOST", os.getenv("RETRIEVER_HOST", "standalone"))
 MILVUS_PORT = os.getenv("MILVUS_PORT", os.getenv("RETRIEVER_PORT", "19530"))

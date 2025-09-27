@@ -1,4 +1,4 @@
-from pymilvus import connections, Collection
+from pymilvus import Collection, connections
 
 # Подключаемся
 connections.connect(alias="default", host="172.21.1.4", port="19530")

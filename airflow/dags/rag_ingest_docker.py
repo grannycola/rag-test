@@ -1,9 +1,10 @@
-from datetime import datetime
 import os
-from airflow import DAG
+from datetime import datetime
+
 from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import DeviceRequest, Mount
 
+from airflow import DAG
 
 MILVUS_HOST = os.getenv("MILVUS_HOST", "standalone")
 MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")

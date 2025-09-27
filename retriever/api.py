@@ -1,10 +1,9 @@
 import os
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
 from typing import List
 
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 from src.retriever import MilvusRetriever
-
 
 app = FastAPI(title="RAG Retriever API")
 

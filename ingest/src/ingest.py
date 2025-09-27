@@ -1,16 +1,16 @@
-import os, re, hashlib
-import sys, logging
+import hashlib
+import logging
+import os
+import re
+import sys
 from pathlib import Path
-from sentence_transformers import SentenceTransformer
+
 import numpy as np
-from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pymilvus import (Collection, CollectionSchema, DataType, FieldSchema,
+                      connections, utility)
 from pymilvus.exceptions import MilvusException
-try:
-    # LangChain splitters are split into a separate package
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-    HAVE_LC = True
-except Exception:
-    HAVE_LC = False
+from sentence_transformers import SentenceTransformer
 
 MILVUS_HOST = os.getenv("MILVUS_HOST", "standalone")
 MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
@@ -53,18 +53,17 @@ def split_into_chunks(text: str, max_tokens=300, overlap=50):
     character-based sizing approximating tokens. Otherwise uses the
     existing simple sentence-based splitter.
     """
-    if HAVE_LC:
-        chunk_size = int(os.getenv("CHUNK_SIZE", str(max_tokens * 6)))
-        chunk_overlap = int(os.getenv("CHUNK_OVERLAP", str(overlap * 6)))
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separators=["\n\n", "\n", ". ", " ", ""],
-            length_function=len,
-        )
-        for part in splitter.split_text(text):
-            yield part
-        return
+    chunk_size = int(os.getenv("CHUNK_SIZE", str(max_tokens * 6)))
+    chunk_overlap = int(os.getenv("CHUNK_OVERLAP", str(overlap * 6)))
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", ". ", " ", ""],
+        length_function=len,
+    )
+    for part in splitter.split_text(text):
+        yield part
+    return
 
     # Fallback: original sentence-based splitting
     sents = re.split(r"(?<=[.!?])\s+", text)
