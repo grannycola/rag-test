@@ -1,5 +1,3 @@
-version: '3.5'
-
 services:
   etcd:
     container_name: milvus-etcd
@@ -64,4 +62,3 @@ services:
 networks:
   default:
     name: milvus
-    driver: bridge

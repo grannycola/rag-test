@@ -13,7 +13,8 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 # уберите torch/torchaudio/torchvision из requirements.txt, чтобы не перезатирать CUDA-сборку
 RUN sed -i '/^torch/d;/^torchvision/d;/^torchaudio/d' /app/requirements.txt && \
-    pip install -r /app/requirements.txt
+    pip install -r /app/requirements.txt && \
+    pip install --no-cache-dir langchain-text-splitters>=0.0.1
 
 # (опционально) прогреть модель, чтобы не тянуть в рантайме
 RUN python - <<'PY'
