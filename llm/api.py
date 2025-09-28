@@ -5,7 +5,18 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from groq import Groq
+import logging
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+# Reduce noisy client logs that may use %-style message templates
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logger = logging.getLogger("llm")
 
 app = FastAPI(title="RAG LLM API")
 
@@ -35,10 +46,10 @@ _http_client: httpx.Client | None = None
 _groq_client: Groq | None = None
 
 
-def get_http_client() -> httpx.Client:
+def get_retriever_client() -> httpx.Client:
     global _http_client
     if _http_client is None:
-        base_url = os.getenv("RETRIEVER_URL", "http://localhost:8000")
+        base_url = os.getenv("RETRIEVER_URL", "http://localhost:8001")
         _http_client = httpx.Client(base_url=base_url, timeout=30.0)
     return _http_client
 
@@ -82,25 +93,31 @@ def health():
 @app.post("/answer", response_model=AnswerResponse)
 def answer(req: AnswerRequest):
     try:
-        client = get_http_client()
-        resp = client.post("/search", json={"query": req.query, "top_k": req.top_k})
+        logger.info(f"Generating answer for query: {req.query}")
+        retriever_client = get_retriever_client()
+        resp = retriever_client.post("/search", json={"query": req.query, "top_k": req.top_k})
         resp.raise_for_status()
         data = resp.json()
         raw_hits = data.get("hits", [])
         hits = [SearchHit(**h) for h in raw_hits]
 
-        messages = build_rag_messages(req.query, hits)
-        groq_client = get_groq_client()
-        completion = groq_client.chat.completions.create(
-            model=req.model,
-            messages=messages,
-            temperature=req.temperature,
-            max_tokens=req.max_tokens,
-        )
-        content = completion.choices[0].message.content if completion.choices else ""
-        return {"answer": content, "hits": hits, "model": req.model}
+        # Mock answer
+        return {"answer": "Hello, world!", "hits": hits}
+
+        # messages = build_rag_messages(req.query, hits)
+        # groq_client = get_groq_client()
+        # logging.info(f"Generating answer for query: {req.query}")
+        # completion = groq_client.chat.completions.create(
+        #     model=req.model,
+        #     messages=messages,
+        #     temperature=req.temperature,
+        #     max_tokens=req.max_tokens,
+        # )
+        # content = completion.choices[0].message.content if completion.choices else ""
+        # return {"answer": content, "hits": hits, "model": req.model}
     except httpx.HTTPError as e:
+        logger.exception("Retriever HTTP error")
         raise HTTPException(status_code=502, detail=f"Retriever error: {str(e)}")
     except Exception as e:
+        logger.exception("Unhandled error in /answer")
         raise HTTPException(status_code=500, detail=str(e))
-

@@ -3,6 +3,9 @@ version: '3.8'
 services:
   retriever:
     container_name: rag-retriever
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       MILVUS_HOST: standalone
       MILVUS_PORT: "19530"
