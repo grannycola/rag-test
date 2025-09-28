@@ -24,5 +24,5 @@ snapshot_download("sentence-transformers/all-MiniLM-L6-v2",
 print("Model cached.")
 PY
 
-COPY src/ /app/src
+COPY . /app
 ENTRYPOINT ["python", "-m", "src.ingest"]

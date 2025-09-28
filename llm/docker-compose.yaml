@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  llm:
+    container_name: rag-llm
+    env_file:
+      - llm/.env
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
+      RETRIEVER_URL: ${RETRIEVER_URL:-http://rag-retriever:8001}
+    ports:
+      - "8100:8100"
+    networks:
+      - milvus
+
+networks:
+  milvus:
+    external: true
+    name: milvus
+
+

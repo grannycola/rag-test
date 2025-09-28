@@ -3,16 +3,13 @@ version: '3.8'
 services:
   retriever:
     container_name: rag-retriever
-    build:
-      context: ..
-      dockerfile: retriever/Dockerfile
     environment:
       MILVUS_HOST: standalone
       MILVUS_PORT: "19530"
       COLLECTION_NAME: rag_chunks
       EMBED_MODEL: sentence-transformers/all-MiniLM-L6-v2
     ports:
-      - "8000:8000"
+      - "8001:8001"
     networks:
       - milvus
 
