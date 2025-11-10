@@ -1,10 +1,9 @@
-from typing import List
+from typing import List, Optional
 
 import os
 import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from groq import Groq
 import logging
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -31,19 +30,19 @@ class SearchHit(BaseModel):
 class AnswerRequest(BaseModel):
     query: str = Field(..., min_length=1)
     top_k: int = Field(5, ge=1, le=50)
-    model: str = Field(default=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"))
-    temperature: float = Field(0.2, ge=0.0, le=1.0)
+    model: str = Field(default=os.getenv("OLLAMA_MODEL", "llama3:8b"))
+    temperature: float = Field(1e-5, ge=0.0, le=1.0)
     max_tokens: int = Field(512, ge=64, le=4096)
 
 
 class AnswerResponse(BaseModel):
     answer: str
     hits: List[SearchHit]
-    model: str
+    model: Optional[str] = None
 
 
 _http_client: httpx.Client | None = None
-_groq_client: Groq | None = None
+_ollama_base: str | None = None
 
 
 def get_retriever_client() -> httpx.Client:
@@ -54,14 +53,11 @@ def get_retriever_client() -> httpx.Client:
     return _http_client
 
 
-def get_groq_client() -> Groq:
-    global _groq_client
-    if _groq_client is None:
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            raise RuntimeError("GROQ_API_KEY is not set")
-        _groq_client = Groq(api_key=api_key)
-    return _groq_client
+def get_ollama_base() -> str:
+    global _ollama_base
+    if _ollama_base is None:
+        _ollama_base = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+    return _ollama_base
 
 
 def build_rag_messages(query: str, hits: List[SearchHit]) -> List[dict]:
@@ -101,20 +97,24 @@ def answer(req: AnswerRequest):
         raw_hits = data.get("hits", [])
         hits = [SearchHit(**h) for h in raw_hits]
 
-        # Mock answer
-        return {"answer": "Hello, world!", "hits": hits}
+        # If MOCK_LLM=1, return a test answer
+        if os.getenv("MOCK_LLM", "0") == "1":
+            return {"answer": "Hello, world!", "hits": hits}
 
-        # messages = build_rag_messages(req.query, hits)
-        # groq_client = get_groq_client()
-        # logging.info(f"Generating answer for query: {req.query}")
-        # completion = groq_client.chat.completions.create(
-        #     model=req.model,
-        #     messages=messages,
-        #     temperature=req.temperature,
-        #     max_tokens=req.max_tokens,
-        # )
-        # content = completion.choices[0].message.content if completion.choices else ""
-        # return {"answer": content, "hits": hits, "model": req.model}
+        # Build a simple chat payload for Ollama
+        messages = build_rag_messages(req.query, hits)
+        payload = {
+            "model": req.model,
+            "options": {"temperature": req.temperature},
+            "messages": messages,
+            "stream": False,
+        }
+        base = get_ollama_base()
+        r = httpx.post(f"{base}/api/chat", json=payload, timeout=120)
+        r.raise_for_status()
+        j = r.json()
+        content = j.get("message", {}).get("content", "")
+        return {"answer": content, "hits": hits}
     except httpx.HTTPError as e:
         logger.exception("Retriever HTTP error")
         raise HTTPException(status_code=502, detail=f"Retriever error: {str(e)}")
