@@ -4,3 +4,4 @@ __pycache__/
 *.meta
 *.bkp
 vector_db/volumes/
+logs/
