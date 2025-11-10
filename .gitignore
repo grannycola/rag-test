@@ -5,3 +5,8 @@ __pycache__/
 *.bkp
 vector_db/volumes/
 logs/
+.env
+sha256-*
+llm/models
+id_ed*
+airflow/logs/dag_processor/
